@@ -1,0 +1,13 @@
+rules_version = '2';
+// Bunwich — receipt images (only used when USE_STORAGE = true, needs the Blaze plan)
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /assets/{id} {
+      allow read: if true;   // ids are random and unguessable; <img> tags can't send a login token
+      allow create: if request.auth != null
+                    && request.resource.size < 20 * 1024 * 1024
+                    && (request.resource.contentType.matches('image/.*') || request.resource.contentType == 'application/pdf');
+      allow delete: if request.auth != null;
+    }
+  }
+}

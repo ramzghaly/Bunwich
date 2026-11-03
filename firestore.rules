@@ -1,0 +1,62 @@
+rules_version = '2';
+// Bunwich — Firestore security rules
+// إيميل owner لازم يكون نفس OWNER_EMAIL في public/firebase-config.js
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signed()   { return request.auth != null; }
+    function membersPath() { return /databases/$(database)/documents/meta/members; }
+    function hasMembers() { return exists(membersPath()); }
+    function mem()      { return get(membersPath()).data; }
+    function isOwner()  { return signed() && hasMembers() && mem().owner == request.auth.uid; }
+    function uname()    { return request.auth.token.email.split('@')[0]; }
+    function staff()    { return signed() && hasMembers() && request.auth.token.email != null
+                                 && mem().users.get(uname(), null) != null
+                                 && mem().users[uname()].uid == request.auth.uid
+                                 && mem().users[uname()].active == true; }
+    function member()   { return isOwner() || staff(); }
+    function admin()    { return isOwner() || (staff() && mem().users[uname()].role == 'ADMIN'); }
+
+    // setup marker — readable before login so the app knows if owner was created
+    match /meta/public {
+      allow read: if true;
+      allow create: if isOwner() && request.resource.data.ownerUid == request.auth.uid;
+      allow update, delete: if isOwner();
+    }
+    // who may log in, with role and active flag (written by the owner from the app)
+    match /meta/members {
+      allow read: if member();
+      allow create: if signed() && !hasMembers()
+                    && request.auth.token.email == 'ramz.ghaly@gmail.com'
+                    && request.resource.data.owner == request.auth.uid;
+      allow update: if isOwner() && request.resource.data.owner == resource.data.owner;
+      allow delete: if false;
+    }
+
+    // settings: everyone logged in reads, only OWNER / ADMIN change
+    match /settings/{doc} {
+      allow read: if member();
+      allow write: if admin();
+    }
+
+    // audit trail: each person writes only their own log, nobody can edit or delete a log line
+    match /audit/{uid} {
+      allow read: if admin() || (member() && request.auth.uid == uid);
+      allow create, update: if member() && request.auth.uid == uid;
+      match /log/{line} {
+        allow read: if admin() || (member() && request.auth.uid == uid);
+        allow create: if member() && request.auth.uid == uid;
+        allow update, delete: if false;
+      }
+    }
+
+    // business data
+    match /{coll}/{doc} {
+      allow read, write: if member() && coll in [
+        'entries','expenseTypes','products','bankDirections','fundDirections',
+        'stockMoves','menuItems','recipes','stockCounts','loanCodes','payrolls',
+        'cashCounts','bankRecs'
+      ];
+    }
+  }
+}
