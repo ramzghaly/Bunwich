@@ -2,7 +2,7 @@
 // Data itself is synced by Firestore (with its own offline cache); this only caches the app files.
 const VERSION = 'bunwich-v1';
 const SHELL = ['/', '/index.html', '/firebase-config.js', '/firebase-shim.js', '/manifest.webmanifest',
-  '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png'];
+  '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png'];
 const CDN = /^https:\/\/(www\.gstatic\.com\/firebasejs|cdnjs\.cloudflare\.com|fonts\.(googleapis|gstatic)\.com)\//;
 
 self.addEventListener('install', e => {
