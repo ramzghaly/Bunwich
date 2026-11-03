@@ -21,4 +21,4 @@ jobs:
       - name: Deploy hosting + Firestore rules
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
-        run: npx --yes firebase-tools@13 deploy --only hosting,firestore --non-interactive --project bunwich-d6f7c
+        run: npx --yes firebase-tools@13 deploy   --only hosting --non-interactive --project bunwich-d6f7c
