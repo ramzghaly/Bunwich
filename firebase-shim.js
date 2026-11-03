@@ -37,7 +37,7 @@
   // ---------- login ----------
   async function needsSetup() {
     try { const s = await fs.doc('meta/public').get(); return !s.exists; }
-    catch (e) { return false; }
+    catch (e) { console.warn('meta/public', e); return false; }
   }
   function mapAuthError(e) {
     const c = (e && e.code) || '';
@@ -46,7 +46,10 @@
     if (/user-disabled/.test(c)) return 'disabled';
     if (/weak-password/.test(c)) return 'weak';
     if (/email-already-in-use/.test(c)) return 'exists';
-    return 'bad_login';
+    if (/operation-not-allowed|configuration-not-found|admin-restricted/.test(c)) return 'auth_off';
+    if (/api-key|app-not-authorized|unauthorized-domain|invalid-api-key/.test(c)) return 'bad_config';
+    if (/invalid-credential|wrong-password|user-not-found|invalid-email|invalid-login/.test(c)) return 'bad_login';
+    return 'other:' + c;
   }
   async function finishLogin(name, uid) {
     await loadMembers().catch(() => null);

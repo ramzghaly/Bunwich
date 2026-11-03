@@ -2441,7 +2441,7 @@ tfoot td{font-weight:600;border-top:2px solid var(--line);border-bottom:0}
   let lgName='';
   // ---------- Firebase login (Firebase build only) ----------
   let fbSetup=false;
-  const FBMSG={bad_login:'اسم المستخدم أو الباسورد غلط',inactive:'المستخدم ده مقفول. كلم OWNER.',not_member:'الحساب ده مقفول أو مش متسجل في السيستم. كلم OWNER.',network:'مفيش إنترنت. اتأكد من الاتصال وجرب تاني.',too_many:'محاولات كتير غلط. استنى شوية وجرب تاني.',owner_taken:'السيستم ده متعمله إعداد من حساب تاني.',rules:'قواعد Firestore مش متركبة صح (firestore.rules).',no_owner_email:'لسه OWNER_EMAIL مش مكتوب في firebase-config.js',weak:'الباسورد ضعيف، خليه 8 حروف أو أكتر',exists:'الإيميل ده عليه حساب بباسورد تاني. استخدم «نسيت الباسورد».',disabled:'الحساب ده متوقف من Firebase.'};
+  const FBMSG={bad_login:'اسم المستخدم أو الباسورد غلط',inactive:'المستخدم ده مقفول. كلم OWNER.',not_member:'الحساب ده مقفول أو مش متسجل في السيستم. كلم OWNER.',network:'مفيش إنترنت. اتأكد من الاتصال وجرب تاني.',too_many:'محاولات كتير غلط. استنى شوية وجرب تاني.',owner_taken:'السيستم ده متعمله إعداد من حساب تاني.',rules:'قواعد Firestore مش متركبة صح (firestore.rules).',no_owner_email:'لسه OWNER_EMAIL مش مكتوب في firebase-config.js',weak:'الباسورد ضعيف، خليه 8 حروف أو أكتر',exists:'الإيميل ده عليه حساب بباسورد تاني. استخدم «نسيت الباسورد».',disabled:'الحساب ده متوقف من Firebase.',auth_off:'الدخول بالإيميل مش متفعل في Firebase: Authentication ← Sign-in method ← Email/Password ← Enable.',bad_config:'بيانات firebase-config.js مش مظبوطة.'};
   function fbSetupStage(){lgStage='new';lgName='owner';$('lgUser').value='owner';$('lgNewBox').hidden=false;$('lgPwLbl').textContent='باسورد owner الجديد';$('lgGo').textContent='إعداد السيستم والدخول';const m=$('lockMsg');m.className='msg';m.textContent='أول مرة: اختار باسورد owner (8 حروف على الأقل). هيتعمل حساب على '+FB.ownerEmail}
   async function fbBoot(){
     const m=$('lockMsg');
@@ -2466,7 +2466,7 @@ tfoot td{font-weight:600;border-top:2px solid var(--line);border-bottom:0}
         if(pw!==$('lgPw2').value){m.textContent='التأكيد مش زي الباسورد';return}
         r=await FB.setupOwner(pw);
       }else r=await FB.signIn(name,pw);
-      if(!r.ok){m.textContent=FBMSG[r.code]||'حصلت مشكلة، جرب تاني';if(r.code==='bad_login'){lgFail++;if(lgFail>=5){lgWait=Date.now()+60000;lgFail=0}}$('lgPw').value='';$('lgPw').focus();return}
+      if(!r.ok){m.textContent=FBMSG[r.code]||('حصلت مشكلة ('+String(r.code||'').replace('other:','')+')');if(r.code==='bad_login'){lgFail++;if(lgFail>=5){lgWait=Date.now()+60000;lgFail=0}}$('lgPw').value='';$('lgPw').focus();return}
       lgFail=0;m.className='msg';m.textContent='جاري تحميل البيانات…';
       const u=await window.claude.use('user');userApi=u;
       const [own,edit,id]=await Promise.all([u.isOwner(),u.canEdit(),u.id()]);
