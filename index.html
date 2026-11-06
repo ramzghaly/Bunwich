@@ -244,6 +244,7 @@ tfoot td{font-weight:600;border-top:2px solid var(--line);border-bottom:0}
 #prTable td,#prTable th{white-space:nowrap}
 .neg-c{color:var(--out)}
 .no-del .del{display:none!important}
+body.viewer #app button.save,body.viewer #app button[type=submit],body.viewer #app .row-acts,body.viewer #tImp,body.viewer #tTpl,body.viewer #impBox,body.viewer #prBox,body.viewer label[for=prBox],body.viewer #prPay,body.viewer #prUnpay,body.viewer #entryForm,body.viewer #nuAdd{display:none!important}
 .user-chip{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
 .user-chip b{color:var(--coffee);font-family:ui-monospace,Menlo,monospace}
 .perm-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
@@ -655,12 +656,14 @@ tfoot td{font-weight:600;border-top:2px solid var(--line);border-bottom:0}
       <div class="inv-meta">
         <div class="field"><label for="nuName">اسم المستخدم الجديد</label><input id="nuName" type="text" dir="ltr" autocapitalize="none" spellcheck="false" placeholder="ahmed"></div>
         <div class="field"><label for="nuPw">باسورد أول مرة</label><input id="nuPw" type="text" dir="ltr" autocapitalize="none" spellcheck="false" autocomplete="off" placeholder="8 حروف على الأقل"></div>
-        <div class="field"><label for="nuRole">الدور</label><select id="nuRole"><option value="TELLER">TELLER</option><option value="ADMIN">ADMIN</option></select></div>
+        <div class="field"><label for="nuRole">الدور</label><select id="nuRole"><option value="TELLER">TELLER</option><option value="ADMIN">ADMIN</option><option value="VIEWER">VIEWER (اطلاع بس)</option></select></div>
         <button class="tool" type="button" id="nuAdd">إضافة مستخدم</button>
       </div>
       <div class="tbl"><table><thead><tr><th>المستخدم</th><th>الدور</th><th>الحالة</th><th>الباسورد</th><th></th></tr></thead><tbody id="usrRows"></tbody></table></div>
       <span class="msg" id="usrMsg" role="status"></span>
     </div>
+    <h3 class="rep-h">قفل الفترة (الشهور)</h3>
+    <div id="permLock" style="display:flex;flex-direction:column;gap:10px"></div>
     <h3 class="rep-h">النسخة الاحتياطية</h3>
     <div class="pw-card"><span class="note">Excel مش متشفر، علشان تفتحه وتقراه، فخلي بالك فين تحفظه. JSON نسخة كاملة متشفرة بباسورد OWNER، ومنها السيستم يترجع زي ما هو.</span>
       <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="tool" type="button" id="bkGo">تحميل Excel (للقراءة)</button><button class="tool" type="button" id="bkJson">تحميل JSON مشفر (للاسترجاع)</button></div>
@@ -826,7 +829,8 @@ tfoot td{font-weight:600;border-top:2px solid var(--line);border-bottom:0}
       else{(state.auditLocal=state.auditLocal||[]).push(Object.assign({id:'a'+Date.now()+Math.random().toString(36).slice(2,5)},row))}
     }catch(e){}
   }
-  async function addRec(kind,rec){
+  function roGuard(){if(currentUser==='VIEWER'){toast('صلاحيتك اطلاع بس (VIEWER)، مش هتقدر تسجل أو تعدل.',true);const e=new Error('readonly');e.code='locked';throw e}}
+  async function addRec(kind,rec){roGuard();
     const sc=SCOPED.includes(kind);if(sc){needBranch();rec.branch=activeBranch}
     guard(kind,[rec.date]);
     rec.createdBy=myId||null;rec.createdUser=appUser?appUser.u:'';if(!rec.createdAt)rec.createdAt=Date.now();
@@ -836,7 +840,7 @@ tfoot td{font-weight:600;border-top:2px solid var(--line);border-bottom:0}
     logAudit('add',kind,id,null,rec);
   }
   const findRec=(kind,id)=>(SCOPED.includes(kind)?raw[kind]:state[kind]).find(x=>x.id===id)||(kind==='entries'?voided.find(x=>x.id===id):null);
-  async function updRec(kind,id,data){
+  async function updRec(kind,id,data){roGuard();
     const before=findRec(kind,id);guard(kind,[before&&before.date,data.date]);
     data=Object.assign({},data,{updatedBy:myId||null,updatedUser:appUser?appUser.u:'',updatedAt:Date.now()});
     if(cols[kind]){await cols[kind].doc(id).update(data)}
@@ -854,7 +858,7 @@ tfoot td{font-weight:600;border-top:2px solid var(--line);border-bottom:0}
   }
   const lookName=(kind,id,fb)=>{const r=id&&state[kind].find(x=>x.id===id);return r?r.name:fb};
   let editing=null;
-  async function delRec(kind,id,reason){
+  async function delRec(kind,id,reason){roGuard();
     const before=findRec(kind,id);
     if(kind==='entries'){
       if(!before||before.void)return;
@@ -1369,7 +1373,7 @@ tfoot td{font-weight:600;border-top:2px solid var(--line);border-bottom:0}
     const pbv=$('prBox').value;
     return {month:m,updatedAt:Date.now(),paid:!!paid,...(pbv?{payBox:pbv==='main'?'':pbv}:{}),lines:rows.map(r=>({employeeId:r.id,code:r.code,name:r.name,basic:r.basic,hours:r.hours,otRate:r2(r.rate),ot:r.ot,bonus:r.bonus,gross:r.gross,loans:r.loans,pen:r.pen,tax:r.tax,net:r.net})),totals:Object.fromEntries(Object.entries(T).map(([k,v])=>[k,r2(v)]))};
   }
-  async function prStore(rec){
+  async function prStore(rec){roGuard();
     needBranch();guard('entries',[rec.month+'-01']);rec.branch=activeBranch;const pid=activeBranch+'_'+rec.month;
     if(cols.payrolls){await cols.payrolls.doc(pid).set(rec)}
     else{const ex=raw.payrolls.find(p=>p.id===pid);if(ex)Object.assign(ex,rec);else raw.payrolls.push(Object.assign({id:pid},rec));refilter();saveLocal();render()}
@@ -2342,11 +2346,11 @@ tfoot td{font-weight:600;border-top:2px solid var(--line);border-bottom:0}
   const DEFAULT_TELLER=['income','cash','visa','talabat','invoice','expense'];
   const authDoc=()=>state.settings.find(d=>d.id==='auth')||null;
   const tellerPerms=()=>{const a=authDoc();return (a&&Array.isArray(a.tellerPerms))?a.tellerPerms:DEFAULT_TELLER};
-  function can(k){if(currentUser==='OWNER'||currentUser==='ADMIN')return true;if(currentUser!=='TELLER')return false;return tellerPerms().includes(k)}
+  function can(k){if(currentUser==='OWNER'||currentUser==='ADMIN')return true;if(currentUser==='VIEWER')return k!=='import'&&k!=='delete';if(currentUser!=='TELLER')return false;return tellerPerms().includes(k)}
   function applyPerms(){
     if(!currentUser)return;
     PERMS.forEach(g=>g.items.forEach(it=>{if(!it.sel)return;const ok=can(it.k)&&!(it.k==='export'&&noDl);document.querySelectorAll(it.sel).forEach(el=>el.hidden=!ok)}));
-    $('goPerms').hidden=currentUser!=='OWNER';$('goAudit').hidden=!(currentUser==='OWNER'||currentUser==='ADMIN');$('roNote').hidden=canWrite!==false;
+    $('goPerms').hidden=currentUser!=='OWNER';$('goAudit').hidden=!(currentUser==='OWNER'||currentUser==='ADMIN');$('roNote').hidden=canWrite!==false&&currentUser!=='VIEWER';document.body.classList.toggle('viewer',currentUser==='VIEWER');
     $('brSel').hidden=true;$('curBranch').parentElement.hidden=true;
     $('allNote').hidden=activeBranch!=='all';
     document.body.classList.toggle('no-del',!can('delete'));
@@ -2371,12 +2375,13 @@ tfoot td{font-weight:600;border-top:2px solid var(--line);border-bottom:0}
     showLogin('');
   }
   // perms screen
+  function drawPermLock(){const o=$('permLock');if(!o)return;o.textContent='';if(currentUser!=='OWNER')return;drawMonthLock(o,drawPermLock)}
   function drawPerms(){
     const tp=tellerPerms(),gEl=$('permGrid');gEl.textContent='';
     PERMS.forEach(g=>{const fs=document.createElement('fieldset');const lg=document.createElement('legend');lg.textContent=g.g;fs.appendChild(lg);
       g.items.forEach(it=>{const lb=document.createElement('label');if(!it.main&&g.items.some(x=>x.main))lb.className='sub-p';const cb=document.createElement('input');cb.type='checkbox';cb.id='pm-'+it.k;cb.dataset.perm=it.k;cb.checked=tp.includes(it.k);lb.append(cb,it.l);fs.appendChild(lb)});
       gEl.appendChild(fs)});
-    $('permMsg').textContent='';drawUsers();drawDrive();
+    $('permMsg').textContent='';drawUsers();drawDrive();drawPermLock();
   }
   async function saveAuth(patch){
     const cur=authDoc()||{};const doc={tellerPerms:cur.tellerPerms||DEFAULT_TELLER,admins:Array.isArray(cur.admins)?cur.admins:[],updatedAt:Date.now()};
@@ -2513,7 +2518,7 @@ tfoot td{font-weight:600;border-top:2px solid var(--line);border-bottom:0}
     const msg=t=>{$('usrMsg').className='msg ok';$('usrMsg').textContent=t};
     const ownR=document.createElement('tr');ownR.append(td('owner','num'),td('OWNER'),td('شغال'),td('بيتغير من «Reset» هنا'));{const c=document.createElement('td');const r=mk('Reset الباسورد','edit');r.onclick=async()=>{if(window.FB){try{await FB.ownerReset();msg('اتبعت لينك تغيير الباسورد على '+FB.ownerEmail)}catch(e){toast('ما قدرتش أبعت الإيميل',true)}return}await saveUsers(uList(),{ownerResetAt:Date.now()});logAudit('edit','settings','users',null,{reset:'owner'},'Reset باسورد OWNER');msg('هيتطلب منك باسورد جديد في الدخول الجاي');setTimeout(drawUsers,400)};c.appendChild(r);ownR.appendChild(c)}tb.appendChild(ownR);
     L.forEach((x,i)=>{const tr=document.createElement('tr');const a=acts[x.u];const activated=a&&(!x.resetAt||a.at>x.resetAt);
-      const rs=document.createElement('select');rs.style.width='auto';rs.style.padding='4px 8px';['TELLER','ADMIN'].forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;rs.appendChild(o)});rs.value=x.role;rs.setAttribute('aria-label','دور '+x.u);
+      const rs=document.createElement('select');rs.style.width='auto';rs.style.padding='4px 8px';['TELLER','ADMIN','VIEWER'].forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;rs.appendChild(o)});rs.value=x.role;rs.setAttribute('aria-label','دور '+x.u);
       rs.onchange=async()=>{const l=uList().map(y=>y.u===x.u?Object.assign({},y,{role:rs.value}):y);await saveUsers(l);logAudit('edit','settings','users',{u:x.u,role:x.role},{u:x.u,role:rs.value},'تغيير الدور');msg('اتغير دور '+x.u)};
       const rc=document.createElement('td');rc.appendChild(rs);
       const st=td(x.active?'شغال':'مقفول');st.style.color=x.active?'var(--in)':'var(--out)';
@@ -2664,10 +2669,21 @@ tfoot td{font-weight:600;border-top:2px solid var(--line);border-bottom:0}
     }
     if(audTab==='lock'){
       if(currentUser!=='OWNER'){note('قفل الفترة لـ OWNER بس.');return}
-      const lk=ctlDoc();const CM=Object.assign({},lk.months||{});
-      const saveLock=async(patch,auditBefore,auditAfter)=>{const cur=ctlDoc();const doc=Object.assign({},cur,patch,{updatedAt:Date.now(),updatedBy:myId||null});delete doc.id;
+      const lk=ctlDoc();drawMonthLock(out,renderAudit);
+      // big-amount threshold (kept)
+      const f=document.createElement('form');f.noValidate=true;const bI=inp('number','lkBig',lk.bigAmount||50000);bI.min='0';
+      const sv=document.createElement('button');sv.className='save';sv.type='submit';sv.textContent='حفظ';const m2=document.createElement('span');m2.className='msg';const ac2=document.createElement('div');ac2.className='actions';ac2.append(sv,m2);
+      f.append(fld('حد المبالغ الكبيرة في فحص السلامة',bI),ac2);out.appendChild(f);
+      f.onsubmit=async e=>{e.preventDefault();sv.disabled=true;const before=ctlDoc().bigAmount||null;const v=Number(bI.value)||50000;
+        try{await saveLockDoc({bigAmount:v},{bigAmount:before},{bigAmount:v});m2.className='msg ok';m2.textContent='اتحفظ'}catch(err){m2.className='msg err';m2.textContent='لم يتم الحفظ'}sv.disabled=false};
+    }
+  }
+  async function saveLockDoc(patch,auditBefore,auditAfter){const cur=ctlDoc();const doc=Object.assign({},cur,patch,{updatedAt:Date.now(),updatedBy:myId||null});delete doc.id;
         if(cols.settings)await cols.settings.doc('lock').set(doc);else{const ex=state.settings.find(d=>d.id==='lock');if(ex)Object.assign(ex,doc);else state.settings.push(Object.assign({id:'lock'},doc));saveLocal()}
-        logAudit('edit','settings','lock',auditBefore,auditAfter)};
+        logAudit('edit','settings','lock',auditBefore,auditAfter)}
+  function drawMonthLock(out,redraw){
+    const note=t=>{const p=document.createElement('p');p.className='note';p.style.margin='0';p.textContent=t;out.appendChild(p);return p};
+      const lk=ctlDoc();const CM=Object.assign({},lk.months||{});
       // months list: from first movement month to current month
       const ds=allE().map(x=>x.date).filter(Boolean).concat((raw.stock||[]).map(x=>x.date).filter(Boolean)).sort();
       const cur=monthNow();let first=(ds[0]||todayISO()).slice(0,7);Object.keys(CM).forEach(m=>{if(m<first)first=m});
@@ -2685,17 +2701,10 @@ tfoot td{font-weight:600;border-top:2px solid var(--line);border-bottom:0}
         const ac=document.createElement('td');ac.className='row-acts';const b=document.createElement('button');b.type='button';b.className='del edit';b.textContent=closed?'فتح الفترة':'غلق الفترة';
         b.onclick=async()=>{if(!b.classList.contains('confirm')){b.classList.add('confirm');b.textContent=closed?'تأكيد الفتح':'تأكيد الغلق';setTimeout(()=>{if(b.isConnected){b.classList.remove('confirm');b.textContent=closed?'فتح الفترة':'غلق الفترة'}},3000);return}
           b.disabled=true;const nm=Object.assign({},ctlDoc().months||{});const prev=nm[m]||null;nm[m]={closed:!closed,at:Date.now(),by:myId||null,user:appUser?appUser.u:''};
-          try{await saveLock({months:nm},{month:m,closed:!!(prev&&prev.closed)},{month:m,closed:!closed});toast((closed?'اتفتح شهر ':'اتقفل شهر ')+m);renderAudit()}catch(e){b.disabled=false;b.textContent='لم يتم الحفظ'}};
+          try{await saveLockDoc({months:nm},{month:m,closed:!!(prev&&prev.closed)},{month:m,closed:!closed});toast((closed?'اتفتح شهر ':'اتقفل شهر ')+m);redraw()}catch(e){b.disabled=false;b.textContent='لم يتم الحفظ'}};
         ac.appendChild(b);
         const tr=row([AR[+m.slice(5)-1]+' '+m.slice(0,4),td(n2(E.length),'num'),td(fmt(r2(inn)),'num'),td(fmt(r2(outA)),'num'),st,who,ac]);if(closed)tr.className='row-closed-m';return tr});
       out.appendChild(mkTable(['الشهر','عدد الحركات','الإيرادات','المصروفات','الحالة','آخر تغيير',''],rows));
-      // big-amount threshold (kept)
-      const f=document.createElement('form');f.noValidate=true;const bI=inp('number','lkBig',lk.bigAmount||50000);bI.min='0';
-      const sv=document.createElement('button');sv.className='save';sv.type='submit';sv.textContent='حفظ';const m2=document.createElement('span');m2.className='msg';const ac2=document.createElement('div');ac2.className='actions';ac2.append(sv,m2);
-      f.append(fld('حد المبالغ الكبيرة في فحص السلامة',bI),ac2);out.appendChild(f);
-      f.onsubmit=async e=>{e.preventDefault();sv.disabled=true;const before=ctlDoc().bigAmount||null;const v=Number(bI.value)||50000;
-        try{await saveLock({bigAmount:v},{bigAmount:before},{bigAmount:v});m2.className='msg ok';m2.textContent='اتحفظ'}catch(err){m2.className='msg err';m2.textContent='لم يتم الحفظ'}sv.disabled=false};
-    }
   }
   document.querySelectorAll('[data-aud]').forEach(b=>b.onclick=()=>{audTab=b.dataset.aud;renderAudit()});
   $('goAudit').onclick=()=>{show('audit');renderAudit()};
@@ -3059,7 +3068,7 @@ tfoot td{font-weight:600;border-top:2px solid var(--line);border-bottom:0}
       for(const k in COLNAME){
         cols[k]=db.collection(COLNAME[k]);
         cols[k].onSnapshot(snap=>{
-          let docs=snap.docs.map(d=>Object.assign({id:d.id},d.data()));if(k==='entries'){voided=docs.filter(d=>d.void);docs=docs.filter(d=>!d.void);if(screen==='audit'&&/^(void|checks)$/.test(audTab))renderAudit()}if(SCOPED.includes(k)){raw[k]=docs;refilter()}else state[k]=docs;if(k==='settings')settingsReady();
+          let docs=snap.docs.map(d=>Object.assign({id:d.id},d.data()));if(k==='entries'){voided=docs.filter(d=>d.void);docs=docs.filter(d=>!d.void);if(screen==='audit'&&/^(void|checks)$/.test(audTab))renderAudit()}if(SCOPED.includes(k)){raw[k]=docs;refilter()}else state[k]=docs;if(k==='settings'){settingsReady();try{if(screen==='perms')drawPermLock();if(screen==='audit'&&audTab==='lock')renderAudit()}catch(_){}}
           $('syncNote').textContent='متزامن';render();
         },()=>{$('syncNote').textContent='تعذر التحديث'});
       }

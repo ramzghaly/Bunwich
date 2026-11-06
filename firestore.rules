@@ -16,6 +16,12 @@ service cloud.firestore {
                                  && mem().users[uname()].active == true; }
     function member()   { return isOwner() || staff(); }
     function admin()    { return isOwner() || (staff() && mem().users[uname()].role == 'ADMIN'); }
+    // closed months (settings/lock.months["YYYY-MM"].closed): nobody can add, edit or delete inside them
+    function lockPath() { return /databases/$(database)/documents/settings/lock; }
+    function closedM(d) { return d is string && d.size() >= 7 && exists(lockPath())
+                                 && get(lockPath()).data.get('months', {}).get(d[0:7], {}).get('closed', false) == true; }
+    function dOf(data, c) { return c == 'payrolls' ? data.get('month', '') : data.get('date', ''); }
+    function writer()   { return isOwner() || (staff() && mem().users[uname()].role != 'VIEWER'); }
 
     // setup marker — readable before login so the app knows if owner was created
     match /meta/public {
@@ -52,11 +58,26 @@ service cloud.firestore {
 
     // business data
     match /{coll}/{doc} {
-      allow read, write: if member() && coll in [
+      allow read: if member() && coll in [
         'entries','expenseTypes','products','bankDirections','fundDirections',
         'stockMoves','menuItems','recipes','stockCounts','loanCodes','payrolls',
         'cashCounts','bankRecs'
       ];
+      allow create: if writer() && coll in [
+        'entries','expenseTypes','products','bankDirections','fundDirections',
+        'stockMoves','menuItems','recipes','stockCounts','loanCodes','payrolls',
+        'cashCounts','bankRecs'
+      ] && !closedM(dOf(request.resource.data, coll));
+      allow update: if writer() && coll in [
+        'entries','expenseTypes','products','bankDirections','fundDirections',
+        'stockMoves','menuItems','recipes','stockCounts','loanCodes','payrolls',
+        'cashCounts','bankRecs'
+      ] && !closedM(dOf(resource.data, coll)) && !closedM(dOf(request.resource.data, coll));
+      allow delete: if writer() && coll in [
+        'entries','expenseTypes','products','bankDirections','fundDirections',
+        'stockMoves','menuItems','recipes','stockCounts','loanCodes','payrolls',
+        'cashCounts','bankRecs'
+      ] && !closedM(dOf(resource.data, coll));
     }
   }
 }
